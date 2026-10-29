@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PayPal Ledger Analyst · Sandbox</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#f5f7fa;color:#1a2233}
+.top{background:#003087;color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px}.top b{font-size:20px}
+.badge{background:#ffc439;color:#222;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px}
+.wrap{padding:20px 28px;display:grid;gap:16px;max-width:1280px;margin:0 auto}.card{background:#fff;border-radius:10px;box-shadow:0 1px 3px #0002;padding:16px;min-width:0}
+h3{margin:0 0 10px;font-size:14px;color:#556;text-transform:uppercase;letter-spacing:.5px}
+.ask{display:flex;gap:10px}.ask input{flex:1;font-size:17px;padding:12px;border:2px solid #0070e0;border-radius:8px}
+.btn{background:#0070e0;color:#fff;border:0;border-radius:8px;padding:12px 22px;font-size:16px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.55;cursor:default}.btn.gray{background:#dde2ea;color:#333}
+pre{margin:0;background:#0f1729;color:#cde3ff;padding:12px;border-radius:8px;font-size:13px;line-height:1.5;white-space:pre-wrap;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #e6e9ef}th{background:#f0f3f8}
+.red{color:#c0392b;font-weight:700}.ok{color:#7ee787}.bad{color:#ff7b72}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.chip{background:#eef4fd;color:#003087;border:1px solid #cfe0f7;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.answer{font-size:16px;line-height:1.45}.hide{display:none}.tblwrap{max-height:420px;overflow:auto}
+.action{border:2px solid #ffc439}.title{font-size:20px;font-weight:700;margin-bottom:10px}.muted{font-size:13px;color:#556}
+</style></head><body>
+<div class="top"><b>PayPal Ledger Analyst</b><span class="badge">SANDBOX</span><span style="margin-left:auto;opacity:.8">Sample data · sandbox merchant</span></div>
+<div class="wrap">
+ <div class="card"><form class="ask" id="f"><input id="q" placeholder="Ask your PayPal ledger anything…" autocomplete="off"><button class="btn" id="go">Ask</button></form>
+  <div class="chips" id="chips"></div></div>
+ <div class="card hide" id="ansCard"><div class="answer" id="answer"></div></div>
+ <div class="card action hide" id="actCard"><h3>Agent proposes an action</h3><div class="title" id="actTitle"></div>
+  <div class="tblwrap" id="actTbl"></div>
+  <div class="muted" style="margin-top:12px">Calls <code id="actEp"></code> on the PayPal sandbox. Nothing runs until you confirm.</div>
+  <div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="confirm">Confirm</button><button class="btn gray" id="cancel">Cancel</button></div></div>
+ <div class="card hide" id="logCard"><h3>Sandbox result log</h3><pre id="log"></pre></div>
+ <div class="grid2 hide" id="sqlRow"><div class="card"><h3>Generated SQL</h3><pre id="sql"></pre></div>
+  <div class="card" id="chartCard"><h3 id="chartTitle">Chart</h3><div id="chart"></div></div></div>
+ <div class="card hide" id="resCard"><h3 id="resTitle"></h3><div class="tblwrap" id="res"></div></div>
+</div>
+<script>
+const SAMPLES=["Which invoices are overdue more than 7 days?","What's our refund rate by product category?","Total captured vs refunded amount by customer","How much is outstanding on unpaid invoices, by due week?","Remind everyone whose invoice is more than 7 days overdue"];
+const $=id=>document.getElementById(id), show=(id,on=true)=>$(id).classList.toggle('hide',!on);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let pending=null;
+SAMPLES.forEach(s=>{const b=document.createElement('span');b.className='chip';b.textContent=s;b.onclick=()=>{$('q').value=s;run()};$('chips').append(b)});
+function table(cols,rows,redCol){return '<table><tr>'+cols.map(c=>'<th>'+esc(c.replace(/_/g,' '))+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map((v,i)=>'<td'+(i===redCol&&Number(v)>0?' class=red':'')+'>'+esc(fmt(cols[i],v))+'</td>').join('')+'</tr>').join('')+'</table>'}
+function fmt(c,v){return (/amount|total|outstanding|captured|refunded/i.test(c)&&typeof v==='number')?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):v}
+function chart(cols,rows,x,y){const xi=cols.indexOf(x),yi=cols.indexOf(y);if(xi<0||yi<0||!rows.length)return'';
+ const data=rows.slice(0,14).map(r=>[String(r[xi]),Number(r[yi])||0]),max=Math.max(...data.map(d=>d[1]),1e-9),W=560,H=200,bw=Math.min(60,(W-20)/data.length-14);
+ let s=`<svg viewBox="0 0 ${W} ${H+10}" width="100%">`;data.forEach((d,i)=>{const x0=10+i*((W-20)/data.length)+7,h=Math.max(2,(H-50)*d[1]/max),yy=H-20-h;
+ s+=`<rect x="${x0}" y="${yy}" width="${bw}" height="${h}" fill="#0070e0" rx="2"/><text x="${x0+bw/2}" y="${yy-6}" font-size="11" text-anchor="middle" fill="#1a2233">${esc(+d[1].toFixed(2))}</text><text x="${x0+bw/2}" y="${H-4}" font-size="11" text-anchor="middle" fill="#556">${esc(d[0].slice(0,12))}</text>`});return s+'</svg>'}
+async function run(e){e&&e.preventDefault();const q=$('q').value.trim();if(!q)return;$('go').disabled=true;$('go').textContent='Thinking…';
+ ['ansCard','actCard','logCard','sqlRow','resCard'].forEach(i=>show(i,false));
+ try{const r=await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q})});const j=await r.json();
+  if(j.error){$('answer').textContent=j.error;show('ansCard');return}
+  if(j.answer){$('answer').innerHTML=esc(j.answer).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');show('ansCard')}
+  if(j.action){pending=j.action;$('actTitle').textContent=j.action.title;$('actEp').textContent=j.action.endpoint;$('actTbl').innerHTML=table(j.action.columns,j.action.rows,j.action.columns.indexOf('days_overdue'));$('confirm').disabled=false;show('actCard')}
+  if(j.result){const R=j.result;$('sql').textContent=R.sql;show('sqlRow');const c=j.chart&&chart(R.columns,R.rows,j.chart.x,j.chart.y);
+   $('chartCard').classList.toggle('hide',!c);$('sqlRow').style.gridTemplateColumns=c?'':'1fr';if(c){$('chart').innerHTML=c;$('chartTitle').textContent=(j.chart.title||j.chart.y)+' (Sandbox)'}
+   if(!j.action){$('resTitle').textContent=`Results · ${R.rows.length} rows · ${R.ms} ms`;$('res').innerHTML=table(R.columns,R.rows,R.columns.indexOf('days_overdue'));show('resCard')}}
+ }catch(err){$('answer').textContent='Something went wrong, please try again.';show('ansCard')}finally{$('go').disabled=false;$('go').textContent='Ask'}}
+$('f').onsubmit=run;
+$('cancel').onclick=()=>{pending=null;show('actCard',false)};
+$('confirm').onclick=async()=>{if(!pending)return;$('confirm').disabled=true;$('log').textContent='Running in sandbox…';show('logCard');
+ const r=await fetch('/api/confirm',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:pending.token})});const j=await r.json();pending=null;
+ $('log').innerHTML=j.error?'<span class=bad>'+esc(j.error)+'</span>':j.log.map(l=>esc(l).replace(/→ (2\d\d [^<]*)/,'→ <span class=ok>$1</span>').replace(/→ ([45]\d\d.*)/,'→ <span class=bad>$1</span>')).join('\n')};
+</script></body></html>

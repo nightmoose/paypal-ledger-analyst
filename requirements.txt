@@ -1,0 +1,4 @@
+fastapi==0.115.*
+duckdb==1.*
+anthropic>=0.40
+httpx>=0.27
