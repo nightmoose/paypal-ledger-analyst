@@ -1,5 +1,6 @@
 """Confirm-gated sandbox actions. Proposals are HMAC-signed so the stateless server can
 verify on /confirm that the user confirms exactly what the agent proposed."""
+from zoneinfo import ZoneInfo
 import base64, hashlib, hmac, json, os, time, uuid, datetime as dt
 from . import db
 from .paypal import call
@@ -53,9 +54,9 @@ def propose(kind: str, ids: list) -> dict:
 
 def execute(token: str, store) -> list:
     d = verify(token)
-    now = lambda: dt.datetime.now(dt.timezone(dt.timedelta(hours=-4))).strftime("%H:%M:%S")
+    now = lambda: dt.datetime.now(ZoneInfo("America/New_York")).strftime("%H:%M:%S ET")
     log = [f"{now()}  confirm received (user click) · action_id {d['action_id']}"]
-    ok = 0
+    ok = 0; logged = 0
     for i in d["ids"]:
         if d["kind"] == "invoice_reminder":
             path = f"/v2/invoicing/invoices/{i}/remind"
@@ -68,9 +69,9 @@ def execute(token: str, store) -> list:
         good = r.status_code < 300; ok += good
         log.append(f"{now()}  POST {path}  → {r.status_code} {r.reason_phrase}" + ("" if good else f" {r.text[:160]}"))
         try:
-            store.log_action(d["action_id"], d["kind"], i, r.status_code, r.text[:500])
+            store.log_action(d["action_id"], d["kind"], i, r.status_code, r.text[:500]); logged += 1
         except Exception as e:
             log.append(f"{now()}  (log write failed: {type(e).__name__})")
     what = "reminders sent" if d["kind"] == "invoice_reminder" else "refunds issued"
-    log.append(f"{now()}  done · {ok}/{len(d['ids'])} {what} (sandbox) · logged to actions table")
+    log.append(f"{now()}  done · {ok}/{len(d['ids'])} {what} (sandbox)" + (" · logged to actions table" if logged == len(d["ids"]) else f" · {logged} logged"))
     return log

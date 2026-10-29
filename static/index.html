@@ -14,7 +14,7 @@ table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left
 .red{color:#c0392b;font-weight:700}.ok{color:#7ee787}.bad{color:#ff7b72}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.chip{background:#eef4fd;color:#003087;border:1px solid #cfe0f7;border-radius:16px;padding:6px 12px;font-size:13px;cursor:pointer}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
-.answer{font-size:16px;line-height:1.45}.hide{display:none}.tblwrap{max-height:420px;overflow:auto}
+.answer{font-size:16px;line-height:1.45;white-space:pre-line}.hide{display:none}.tblwrap{max-height:420px;overflow:auto}
 .action{border:2px solid #ffc439}.title{font-size:20px;font-weight:700;margin-bottom:10px}.muted{font-size:13px;color:#556}
 </style></head><body>
 <div class="top"><b>PayPal Ledger Analyst</b><span class="badge">SANDBOX</span><span style="margin-left:auto;opacity:.8">Sample data · sandbox merchant</span></div>
@@ -38,7 +38,8 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 let pending=null;
 SAMPLES.forEach(s=>{const b=document.createElement('span');b.className='chip';b.textContent=s;b.onclick=()=>{$('q').value=s;run()};$('chips').append(b)});
 function table(cols,rows,redCol){return '<table><tr>'+cols.map(c=>'<th>'+esc(c.replace(/_/g,' '))+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map((v,i)=>'<td'+(i===redCol&&Number(v)>0?' class=red':'')+'>'+esc(fmt(cols[i],v))+'</td>').join('')+'</tr>').join('')+'</table>'}
-function fmt(c,v){return (/amount|total|outstanding|captured|refunded/i.test(c)&&typeof v==='number')?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):v}
+const CNT=/(^|_)(orders?|counts?|cnt|num|number|qty|quantity|invoices|customers|rows|refunds|captures|days|n)(_|$)|count|percent|pct|rate/i,MONEY=/amount|amt|revenue|value|usd|total|outstanding|captured|refunded|price|balance|sum/i;
+function fmt(c,v){if(typeof v!=='number')return v;if(CNT.test(c))return Number.isInteger(v)?v.toLocaleString():+v.toFixed(2);return MONEY.test(c)?'$'+v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):v}
 function chart(cols,rows,x,y){const xi=cols.indexOf(x),yi=cols.indexOf(y);if(xi<0||yi<0||!rows.length)return'';
  const data=rows.slice(0,14).map(r=>[String(r[xi]),Number(r[yi])||0]),max=Math.max(...data.map(d=>d[1]),1e-9),W=560,H=200,bw=Math.min(60,(W-20)/data.length-14);
  let s=`<svg viewBox="0 0 ${W} ${H+10}" width="100%">`;data.forEach((d,i)=>{const x0=10+i*((W-20)/data.length)+7,h=Math.max(2,(H-50)*d[1]/max),yy=H-20-h;

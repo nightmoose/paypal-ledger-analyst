@@ -44,7 +44,8 @@ class SupabaseStore:
 
     def _rpc(self, fn, **kw):
         r = httpx.post(self.url + fn, headers=self.h, json={"p_secret": self.secret, **kw}, timeout=15)
-        r.raise_for_status(); return r.json()
+        r.raise_for_status()
+        return r.json() if r.content else None
 
     def gate(self, ip, cap=CAP_USD, per10=PER_10MIN, perday=PER_DAY):
         return self._rpc("pla_gate", p_ip=ip, p_cap=cap, p_per_10min=per10, p_per_day=perday)
